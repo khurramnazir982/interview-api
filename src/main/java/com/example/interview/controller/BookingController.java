@@ -3,6 +3,11 @@ package com.example.interview.controller;
 import java.util.List;
 
 import com.example.interview.dto.BookingRequest;
+import com.example.interview.exception.AllRoomsBookedException;
+import com.example.interview.exception.InvalidNumberOfPeopleException;
+import com.example.interview.exception.InvalidTimeIntervalException;
+import com.example.interview.exception.MaintenanceTimeException;
+import com.example.interview.exception.NoRoomAvailableException;
 import com.example.interview.model.ConferenceRoom;
 import com.example.interview.service.BookingService;
 import com.example.interview.service.RoomService;
@@ -36,8 +41,11 @@ public class BookingController {
         try {
             String message = bookingService.bookRoom(bookingRequest);
             return ResponseEntity.ok(message);
-        } catch (Exception e) {
+        } catch (InvalidNumberOfPeopleException | MaintenanceTimeException | NoRoomAvailableException
+                 | InvalidTimeIntervalException | AllRoomsBookedException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("An unexpected error occurred.");
         }
     }
 
