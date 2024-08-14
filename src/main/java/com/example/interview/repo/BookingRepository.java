@@ -9,13 +9,6 @@ import com.example.interview.model.Booking;
 import com.example.interview.model.ConferenceRoom;
 import org.springframework.stereotype.Repository;
 
-import org.springframework.stereotype.Repository;
-
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 @Repository
 public class BookingRepository {
 
