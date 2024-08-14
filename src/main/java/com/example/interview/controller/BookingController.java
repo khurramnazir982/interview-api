@@ -34,6 +34,10 @@ public class BookingController {
 
     @PostMapping("/book")
     public ResponseEntity<String> bookRoom(@Valid @RequestBody BookingRequest bookingRequest, BindingResult result) {
+        if (bookingRequest == null) {
+            throw new IllegalArgumentException("Booking request cannot be null.");
+        }
+
         if (result.hasErrors()) {
             return ResponseEntity.badRequest().body(result.getFieldError().getDefaultMessage());
         }

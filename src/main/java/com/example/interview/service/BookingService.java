@@ -1,6 +1,8 @@
 package com.example.interview.service;
 
+import java.time.Duration;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +32,16 @@ public class BookingService {
     private BookingRepository bookingRepository;
 
     public String bookRoom(BookingRequest request) {
-        LocalTime startTime = LocalTime.parse(request.getStartTime());
-        LocalTime endTime = LocalTime.parse(request.getEndTime());
+        LocalTime startTime;
+        LocalTime endTime;
+
+        try {
+            startTime = LocalTime.parse(request.getStartTime());
+            endTime = LocalTime.parse(request.getEndTime());
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid time format. Please use HH:mm format (e.g., 14:30).");
+        }
+
         int numberOfPeople = request.getNumberOfPeople();
 
         // Validate booking request
@@ -42,11 +52,19 @@ public class BookingService {
         // Check if the time intervals are valid
         validateTimeInterval(startTime, endTime);
 
+        // Validate booking duration
+        validateBookingDuration(startTime, endTime);
+
         // Find the best available room
         Optional<ConferenceRoom> availableRoom = findAvailableRoom(startTime, endTime, numberOfPeople);
 
         if (availableRoom.isPresent()) {
             ConferenceRoom room = availableRoom.get();
+
+            // Validate room object
+            if (room == null) {
+                throw new NoRoomAvailableException("No suitable room found.");
+            }
 
             // Creating a Booking using Lombok's @Builder
             Booking booking = Booking.builder()
@@ -56,6 +74,10 @@ public class BookingService {
                     .numberOfPeople(numberOfPeople)
                     .build();
 
+            // Save the booking
+            if (bookingRepository == null) {
+                throw new IllegalStateException("Booking repository is not initialized.");
+            }
             bookingRepository.save(booking);
 
             return String.format("Room '%s' booked successfully for %d people from %s to %s.",
@@ -70,7 +92,7 @@ public class BookingService {
                         .append(" people are booked, but the following rooms with lower capacity are available during the requested time:\n");
 
                 lowerCapacityRooms.forEach(room ->
-                                                   message.append(String.format("Room '%s' with a capacity of %d people\n",
+                                                   message.append(String.format("Room '%s' with a capacity of %d people.\n",
                                                                                 room.getName(), room.getCapacity())));
 
                 throw new NoRoomAvailableException(message.toString().trim());
@@ -81,13 +103,41 @@ public class BookingService {
     }
 
     private void validateTimeInterval(LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            throw new IllegalArgumentException("Start time and end time cannot be null.");
+        }
+        if (startTime.equals(endTime) || startTime.isAfter(endTime)) {
+            throw new InvalidTimeIntervalException("End time must be after start time.");
+        }
         if (startTime.getMinute() % 15 != 0 || endTime.getMinute() % 15 != 0) {
             throw new InvalidTimeIntervalException("Booking times must be in 15-minute intervals.");
         }
     }
 
+    private void validateBookingDuration(LocalTime startTime, LocalTime endTime) {
+        Duration duration = Duration.between(startTime, endTime);
+
+        // Ensure booking duration is at least 30 minutes
+        if (duration.isNegative() || duration.isZero() || duration.toMinutes() < 30) {
+            throw new InvalidTimeIntervalException("Booking duration must be at least 30 minutes.");
+        }
+
+        // Ensure booking duration does not exceed 4 hours
+        if (duration.toHours() > 4 || (duration.toHours() == 4 && duration.toMinutesPart() > 0)) {
+            throw new InvalidTimeIntervalException("Booking duration cannot exceed 4 hours.");
+        }
+    }
+
+
     private Optional<ConferenceRoom> findAvailableRoom(LocalTime startTime, LocalTime endTime, int numberOfPeople) {
+        if (conferenceRoomRepository == null) {
+            throw new IllegalStateException("Conference room repository is not initialized.");
+        }
+
         List<ConferenceRoom> rooms = conferenceRoomRepository.findAll();
+        if (rooms == null || rooms.isEmpty()) {
+            throw new NoRoomAvailableException("No rooms available in the repository.");
+        }
 
         // Check if all rooms are already booked
         boolean allRoomsBooked = rooms.stream()
@@ -114,7 +164,14 @@ public class BookingService {
     }
 
     private List<ConferenceRoom> findLowerCapacityRooms(LocalTime startTime, LocalTime endTime, int numberOfPeople) {
+        if (conferenceRoomRepository == null) {
+            throw new IllegalStateException("Conference room repository is not initialized.");
+        }
+
         List<ConferenceRoom> rooms = conferenceRoomRepository.findAll();
+        if (rooms == null || rooms.isEmpty()) {
+            throw new NoRoomAvailableException("No rooms available in the repository.");
+        }
 
         // Filter rooms with lower capacity than needed
         return rooms.stream()
@@ -125,19 +182,32 @@ public class BookingService {
     }
 
     private boolean isRoomAvailable(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {
+        if (room == null) {
+            throw new IllegalArgumentException("Room cannot be null.");
+        }
+
+        if (bookingRepository == null) {
+            throw new IllegalStateException("Booking repository is not initialized.");
+        }
+
         // Check existing bookings first
         List<Booking> existingBookings = bookingRepository.findByRoomAndTime(room, startTime, endTime);
-        if (!existingBookings.isEmpty()) {
+        if (existingBookings != null && !existingBookings.isEmpty()) {
             return false; // Room is already booked during the requested time
         }
 
         // Check maintenance schedule
-        for (LocalTime[] maintenanceSlot : room.getMaintenanceSchedule()) {
-            if (!endTime.isBefore(maintenanceSlot[0]) && !startTime.isAfter(maintenanceSlot[1])) {
-                StringBuilder message = new StringBuilder("The requested time overlaps with the following maintenance windows for room: ")
-                        .append(room.getName()).append(": ")
-                        .append(String.format("[%s to %s]", maintenanceSlot[0], maintenanceSlot[1]));
-                throw new MaintenanceTimeException(message.toString().trim());
+        List<LocalTime[]> maintenanceSchedule = room.getMaintenanceSchedule();
+        if (maintenanceSchedule != null) {
+            for (LocalTime[] maintenanceSlot : maintenanceSchedule) {
+                if (maintenanceSlot != null && maintenanceSlot.length == 2) {
+                    if (!endTime.isBefore(maintenanceSlot[0]) && !startTime.isAfter(maintenanceSlot[1])) {
+                        StringBuilder message = new StringBuilder("The requested time overlaps with the following maintenance windows for room: ")
+                                .append(room.getName()).append(": ")
+                                .append(String.format("[%s to %s]", maintenanceSlot[0], maintenanceSlot[1]));
+                        throw new MaintenanceTimeException(message.toString().trim());
+                    }
+                }
             }
         }
 
