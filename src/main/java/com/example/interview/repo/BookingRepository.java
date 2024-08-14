@@ -18,6 +18,12 @@ public class BookingRepository {
         bookings.add(booking);
     }
 
+    public List<Booking> findByRoom(ConferenceRoom room) {
+        return bookings.stream()
+                .filter(booking -> booking.getRoom().equals(room))
+                .collect(Collectors.toList());
+    }
+
     public List<Booking> findByRoomAndTime(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {
         return bookings.stream()
                 .filter(booking -> booking.getRoom().equals(room) &&

@@ -190,24 +190,25 @@ public class BookingService {
             throw new IllegalStateException("Booking repository is not initialized.");
         }
 
-        // Check existing bookings first
-        List<Booking> existingBookings = bookingRepository.findByRoomAndTime(room, startTime, endTime);
-        if (existingBookings != null && !existingBookings.isEmpty()) {
-            return false; // Room is already booked during the requested time
+        // Check for existing bookings
+        List<Booking> existingBookings = bookingRepository.findByRoom(room);
+        for (Booking booking : existingBookings) {
+            // Allow bookings that start exactly when another booking ends, or end exactly when another booking starts
+            if ((startTime.isBefore(booking.getEndTime()) && !startTime.equals(booking.getEndTime())) &&
+                    (endTime.isAfter(booking.getStartTime()) && !endTime.equals(booking.getStartTime()))) {
+                return false; // Overlapping booking
+            }
         }
 
         // Check maintenance schedule
-        List<LocalTime[]> maintenanceSchedule = room.getMaintenanceSchedule();
-        if (maintenanceSchedule != null) {
-            for (LocalTime[] maintenanceSlot : maintenanceSchedule) {
-                if (maintenanceSlot != null && maintenanceSlot.length == 2) {
-                    if (!endTime.isBefore(maintenanceSlot[0]) && !startTime.isAfter(maintenanceSlot[1])) {
-                        StringBuilder message = new StringBuilder("The requested time overlaps with the following maintenance windows for room: ")
-                                .append(room.getName()).append(": ")
-                                .append(String.format("[%s to %s]", maintenanceSlot[0], maintenanceSlot[1]));
-                        throw new MaintenanceTimeException(message.toString().trim());
-                    }
-                }
+        for (LocalTime[] maintenanceSlot : room.getMaintenanceSchedule()) {
+            // Allow bookings that start exactly when maintenance ends, or end exactly when maintenance starts
+            if ((startTime.isBefore(maintenanceSlot[1]) && !startTime.equals(maintenanceSlot[1])) &&
+                    (endTime.isAfter(maintenanceSlot[0]) && !endTime.equals(maintenanceSlot[0]))) {
+                StringBuilder message = new StringBuilder("The requested time overlaps with the following maintenance windows for room: ")
+                        .append(room.getName()).append(": ")
+                        .append(String.format("[%s to %s]", maintenanceSlot[0], maintenanceSlot[1]));
+                throw new MaintenanceTimeException(message.toString().trim());
             }
         }
 
