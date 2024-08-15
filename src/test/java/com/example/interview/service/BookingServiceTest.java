@@ -1,5 +1,14 @@
 package com.example.interview.service;
 
+import static com.example.interview.utils.TestConstants.AMAZE_1100_1200_REQUEST;
+import static com.example.interview.utils.TestConstants.AMAZE_ROOM_NAME;
+import static com.example.interview.utils.TestConstants.BEAUTY_ROOM_NAME;
+import static com.example.interview.utils.TestConstants.STRIVE_1100_1200_REQUEST;
+import static com.example.interview.utils.TestConstants.STRIVE_ROOM_NAME;
+import static com.example.interview.utils.TestConstants.TIME_09_15;
+import static com.example.interview.utils.TestConstants.TIME_09_30;
+import static com.example.interview.utils.TestConstants.TIME_10_00;
+import static com.example.interview.utils.TestConstants.TIME_10_30;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,27 +40,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 class BookingServiceTest {
-
-    private static final String AMAZE_ROOM_NAME = "Amaze";
-    private static final String BEAUTY_ROOM_NAME = "Beauty";
-    private static final String INSPIRE_ROOM_NAME = "Inspire";
-    private static final String STRIVE_ROOM_NAME = "Strive";
-    private static final LocalTime TIME_09_15 = LocalTime.of(9, 15);
-    private static final LocalTime TIME_10_00 = LocalTime.of(10, 0);
-    private static final LocalTime TIME_09_30 = LocalTime.of(9, 30);
-    private static final LocalTime TIME_10_30 = LocalTime.of(10, 30);
-
-    private static final BookingRequest STRIVE_1100_1200_REQUEST = BookingRequest.builder()
-            .startTime("11:00")
-            .endTime("12:00")
-            .numberOfPeople(20)
-            .build();
-
-    private static final BookingRequest AMAZE_1100_1200_REQUEST = BookingRequest.builder()
-            .startTime("11:00")
-            .endTime("12:00")
-            .numberOfPeople(3)
-            .build();
 
     @Autowired
     private BookingService bookingService;
