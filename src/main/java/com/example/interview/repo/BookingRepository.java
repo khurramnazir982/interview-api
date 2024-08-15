@@ -31,4 +31,8 @@ public class BookingRepository {
                         !startTime.isAfter(booking.getEndTime()))
                 .collect(Collectors.toList());
     }
+
+    public void clear() {
+        bookings.clear();
+    }
 }
