@@ -1,5 +1,6 @@
 package com.example.interview.service;
 
+import com.example.interview.exception.MaintenanceTimeException;
 import com.example.interview.model.Booking;
 import com.example.interview.model.ConferenceRoom;
 import com.example.interview.repo.BookingRepository;
@@ -34,7 +35,8 @@ public class RoomService {
     private boolean isRoomAvailable(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {
         // Check maintenance schedule
         for (LocalTime[] maintenanceSlot : room.getMaintenanceSchedule()) {
-            if (!endTime.isBefore(maintenanceSlot[0]) && !startTime.isAfter(maintenanceSlot[1])) {
+            if ((startTime.isBefore(maintenanceSlot[1]) && !startTime.equals(maintenanceSlot[1])) &&
+                    (endTime.isAfter(maintenanceSlot[0]) && !endTime.equals(maintenanceSlot[0]))) {
                 return false; // Overlaps with maintenance
             }
         }

@@ -50,12 +50,6 @@ class BookingServiceTest {
     @Autowired
     private BookingRepository bookingRepository;
 
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
     @AfterEach
     public void tearDown() {
         bookingRepository.clear();

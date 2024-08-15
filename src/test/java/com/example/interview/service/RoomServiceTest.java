@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 
 import com.example.interview.model.ConferenceRoom;
+import com.example.interview.repo.BookingRepository;
 import com.example.interview.repo.ConferenceRoomRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,10 +20,18 @@ class RoomServiceTest {
     private ConferenceRoomRepository conferenceRoomRepository;
 
     @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
     private BookingService bookingService;
 
     @Autowired
     private RoomService roomService;
+
+    @AfterEach
+    public void tearDown() {
+        bookingRepository.clear();
+    }
 
     @Test
     public void testGetAvailableRooms_noBookings_noMaintenance_shouldReturnAllRooms() {
