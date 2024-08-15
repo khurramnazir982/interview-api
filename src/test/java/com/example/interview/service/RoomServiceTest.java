@@ -1,6 +1,7 @@
 package com.example.interview.service;
 
 import static com.example.interview.utils.TestConstants.AMAZE_1100_1200_REQUEST;
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -32,6 +33,8 @@ class RoomServiceTest {
     public void tearDown() {
         bookingRepository.clear();
     }
+
+
 
     @Test
     public void testGetAvailableRooms_noBookings_noMaintenance_shouldReturnAllRooms() {
@@ -70,6 +73,27 @@ class RoomServiceTest {
 
         assertAvailableRooms(availableRooms, 3);
     }
+
+    @Test
+    public void testGetAvailableRooms_invalidStartTime_shouldThrowException() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> roomService.getAvailableRooms("10:030", "11:00")
+        );
+
+        assertEquals("Invalid time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
+    }
+
+    @Test
+    public void testGetAvailableRooms_endTimeAfterStartTime_shouldThrowException() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> roomService.getAvailableRooms("11:30", "11:00")
+        );
+
+        assertEquals("Start time must be before end time.", exception.getMessage());
+    }
+
 
     private void assertAvailableRooms(List<ConferenceRoom> availableRooms, int expectedSize) {
         assertEquals(expectedSize, availableRooms.size());
