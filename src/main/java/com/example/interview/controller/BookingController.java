@@ -52,10 +52,4 @@ public class BookingController {
             return ResponseEntity.status(500).body("An unexpected error occurred.");
         }
     }
-
-    @GetMapping("/available")
-    public ResponseEntity<List<ConferenceRoom>> getAvailableRooms(@RequestParam String startTime, @RequestParam String endTime) {
-        List<ConferenceRoom> availableRooms = roomService.getAvailableRooms(startTime, endTime);
-        return ResponseEntity.ok(availableRooms);
-    }
 }

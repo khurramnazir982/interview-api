@@ -14,15 +14,17 @@ public class TestConstants {
     public static final LocalTime TIME_09_30 = LocalTime.of(9, 30);
     public static final LocalTime TIME_10_30 = LocalTime.of(10, 30);
 
+    public static final BookingRequest AMAZE_1100_1200_REQUEST = BookingRequest.builder()
+            .startTime("11:00")
+            .endTime("12:00")
+            .numberOfPeople(3)
+            .build();
+
     public static final BookingRequest STRIVE_1100_1200_REQUEST = BookingRequest.builder()
             .startTime("11:00")
             .endTime("12:00")
             .numberOfPeople(20)
             .build();
 
-    public static final BookingRequest AMAZE_1100_1200_REQUEST = BookingRequest.builder()
-            .startTime("11:00")
-            .endTime("12:00")
-            .numberOfPeople(3)
-            .build();
+
 }
