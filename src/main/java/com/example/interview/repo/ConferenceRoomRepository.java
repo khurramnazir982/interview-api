@@ -7,6 +7,7 @@ import com.example.interview.config.ConferenceRoomConfig;
 import com.example.interview.model.ConferenceRoom;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,12 @@ public class ConferenceRoomRepository {
 
     public List<ConferenceRoom> findAll() {
         return rooms;
+    }
+
+    public Optional<ConferenceRoom> findByName(String name) {
+        return rooms.stream()
+                .filter(room -> room.getName().equalsIgnoreCase(name))
+                .findFirst();
     }
 
     private ConferenceRoom convertToConferenceRoom(ConferenceRoomConfig.ConferenceRoomProperties properties) {
