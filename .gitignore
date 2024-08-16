@@ -1,0 +1,11 @@
+target/
+*.log
+
+.idea/
+*.iml
+
+.mvn/wrapper/
+
+.DS_Store
+Thumbs.db
+
