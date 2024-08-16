@@ -27,60 +27,55 @@ public class RoomService {
     public List<ConferenceRoom> getAvailableRooms(String startTimeStr, String endTimeStr) {
         log.info("getAvailableRooms called with startTime: {} and endTime: {}", startTimeStr, endTimeStr);
 
-        LocalTime startTime;
-        LocalTime endTime;
+        LocalTime startTime = parseAndValidateTime(startTimeStr, "start");
+        LocalTime endTime = parseAndValidateTime(endTimeStr, "end");
 
-        // Validate and parse time strings
-        try {
-            startTime = LocalTime.parse(startTimeStr);
-            endTime = LocalTime.parse(endTimeStr);
-            log.debug("Parsed startTime: {}, endTime: {}", startTime, endTime);
-        } catch (DateTimeParseException e) {
-            log.error("Invalid time format for startTime: {} or endTime: {}", startTimeStr, endTimeStr, e);
-            throw new IllegalArgumentException("Invalid time format. Please use HH:mm format (e.g., 14:30).");
-        }
-
-        // Ensure that startTime is before endTime
         if (!startTime.isBefore(endTime)) {
             log.error("Start time {} is not before end time {}", startTime, endTime);
             throw new IllegalArgumentException("Start time must be before end time.");
         }
 
-        log.info("Fetching all conference rooms from repository");
-        List<ConferenceRoom> rooms = conferenceRoomRepository.findAll();
-
-        log.debug("Filtering available rooms for the given time slot");
-        List<ConferenceRoom> availableRooms = rooms.stream()
+        return conferenceRoomRepository.findAll().stream()
                 .filter(room -> isRoomAvailable(room, startTime, endTime))
                 .collect(Collectors.toList());
+    }
 
-        log.info("Found {} available rooms", availableRooms.size());
-        return availableRooms;
+    private LocalTime parseAndValidateTime(String timeStr, String type) {
+        try {
+            LocalTime time = LocalTime.parse(timeStr);
+            log.debug("Parsed {} time: {}", type, time);
+            return time;
+        } catch (DateTimeParseException e) {
+            log.error("Invalid {} time format: {}", type, timeStr, e);
+            throw new IllegalArgumentException("Invalid " + type + " time format. Please use HH:mm format (e.g., 14:30).");
+        }
     }
 
     private boolean isRoomAvailable(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {
         log.debug("Checking availability for room: {} between {} and {}", room.getName(), startTime, endTime);
 
-        // Check maintenance schedule
-        for (LocalTime[] maintenanceSlot : room.getMaintenanceSchedule()) {
-            if ((startTime.isBefore(maintenanceSlot[1]) && !startTime.equals(maintenanceSlot[1])) &&
-                    (endTime.isAfter(maintenanceSlot[0]) && !endTime.equals(maintenanceSlot[0]))) {
-                log.warn("Room {} is unavailable due to maintenance between {} and {}", room.getName(), maintenanceSlot[0], maintenanceSlot[1]);
-                return false; // Overlaps with maintenance
-            }
+        // Check for overlapping maintenance windows
+        boolean maintenanceOverlap = room.getMaintenanceSchedule().stream()
+                .anyMatch(slot -> timeOverlaps(startTime, endTime, slot[0], slot[1]));
+
+        if (maintenanceOverlap) {
+            log.warn("Room {} is unavailable due to maintenance overlap", room.getName());
+            return false;
         }
 
-        // Check existing bookings
-        log.debug("Checking existing bookings for room: {}", room.getName());
-        List<Booking> existingBookings = bookingRepository.findByRoomAndTime(room, startTime, endTime);
-        boolean isAvailable = existingBookings.isEmpty();
+        // Check for overlapping existing bookings
+        boolean bookingOverlap = bookingRepository.findByRoomAndTime(room, startTime, endTime).isEmpty();
 
-        if (isAvailable) {
-            log.debug("Room {} is available for the requested time slot", room.getName());
-        } else {
+        if (!bookingOverlap) {
             log.warn("Room {} is not available due to existing bookings", room.getName());
+            return false;
         }
 
-        return isAvailable;
+        log.debug("Room {} is available for the requested time slot", room.getName());
+        return true;
+    }
+
+    private boolean timeOverlaps(LocalTime start1, LocalTime end1, LocalTime start2, LocalTime end2) {
+        return start1.isBefore(end2) && end1.isAfter(start2);
     }
 }

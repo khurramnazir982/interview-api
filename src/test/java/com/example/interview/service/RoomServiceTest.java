@@ -81,7 +81,17 @@ class RoomServiceTest {
                 () -> roomService.getAvailableRooms("10:030", "11:00")
         );
 
-        assertEquals("Invalid time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
+        assertEquals("Invalid start time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
+    }
+
+    @Test
+    public void testGetAvailableRooms_invalidEndTime_shouldThrowException() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> roomService.getAvailableRooms("10:30", "11:030")
+        );
+
+        assertEquals("Invalid end time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
     }
 
     @Test
