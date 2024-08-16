@@ -34,7 +34,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -76,7 +75,7 @@ class BookingServiceTest {
             "10:00, 09:30, End time must be after start time.",
             "09:07, 09:30, Booking times must be in 15-minute intervals.",
             "09:15, 09:30, Booking duration must be at least 30 minutes.",
-            "17:15, 23:30, Booking duration cannot exceed 4 hours."
+            "17:15, 23:30, Booking duration cannot exceed 5 hours."
     })
     public void testBookRoom_InvalidBooking_bookingUnsuccessful(String startTime, String endTime, String expectedMessage) {
         assertInvalidTimeIntervalException(
@@ -109,9 +108,25 @@ class BookingServiceTest {
     }
 
     @Test
-    public void testBookRoom_malformedTime_bookingUnsuccessful() {
+    public void testBookRoom_malformedStartTime_bookingUnsuccessful() {
         BookingRequest request = BookingRequest.builder()
                 .startTime("09:154")
+                .endTime("09:30")
+                .numberOfPeople(5)
+                .build();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> bookingService.bookRoom(request)
+        );
+
+        assertEquals("Invalid start time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
+    }
+
+    @Test
+    public void testBookRoom_malformedEndTime_bookingUnsuccessful() {
+        BookingRequest request = BookingRequest.builder()
+                .startTime("09:15")
                 .endTime("09:303")
                 .numberOfPeople(5)
                 .build();
@@ -121,7 +136,7 @@ class BookingServiceTest {
                 () -> bookingService.bookRoom(request)
         );
 
-        assertEquals("Invalid time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
+        assertEquals("Invalid end time format. Please use HH:mm format (e.g., 14:30).", exception.getMessage());
     }
 
     @Test
@@ -176,6 +191,23 @@ class BookingServiceTest {
         );
 
         assertEquals("The requested time overlaps with the following maintenance windows for room: Amaze: [13:00 to 13:15]",
+                     exception.getMessage());
+    }
+
+    @Test
+    public void testBookRoom_2MaintenanceWindowOverlaps_shouldThrowMaintenanceWindowTimeException_bookingUnsuccessful() {
+        BookingRequest request = BookingRequest.builder()
+                .startTime("09:00")
+                .endTime("13:15")
+                .numberOfPeople(5)
+                .build();
+
+        MaintenanceTimeException exception = assertThrows(
+                MaintenanceTimeException.class,
+                () -> bookingService.bookRoom(request)
+        );
+
+        assertEquals("The requested time overlaps with the following maintenance windows for room: Amaze: [09:00 to 09:15] [13:00 to 13:15]",
                      exception.getMessage());
     }
 
