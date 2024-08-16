@@ -17,11 +17,13 @@ import com.example.interview.model.Booking;
 import com.example.interview.model.ConferenceRoom;
 import com.example.interview.repo.BookingRepository;
 import com.example.interview.repo.ConferenceRoomRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class BookingService {
 
@@ -32,13 +34,17 @@ public class BookingService {
     private BookingRepository bookingRepository;
 
     public String bookRoom(BookingRequest request) {
+        log.info("bookRoom called with request: {}", request);
+
         LocalTime startTime;
         LocalTime endTime;
 
         try {
             startTime = LocalTime.parse(request.getStartTime());
             endTime = LocalTime.parse(request.getEndTime());
+            log.debug("Parsed startTime: {}, endTime: {}", startTime, endTime);
         } catch (DateTimeParseException e) {
+            log.error("Invalid time format in request: {}", request, e);
             throw new IllegalArgumentException("Invalid time format. Please use HH:mm format (e.g., 14:30).");
         }
 
@@ -46,6 +52,7 @@ public class BookingService {
 
         // Validate booking request
         if (numberOfPeople <= 1) {
+            log.error("Invalid number of people: {} in request: {}", numberOfPeople, request);
             throw new InvalidNumberOfPeopleException("Number of people should be greater than 1.");
         }
 
@@ -60,13 +67,8 @@ public class BookingService {
 
         if (availableRoom.isPresent()) {
             ConferenceRoom room = availableRoom.get();
+            log.info("Booking room: {} for {} people from {} to {}", room.getName(), numberOfPeople, startTime, endTime);
 
-            // Validate room object
-            if (room == null) {
-                throw new NoRoomAvailableException("No suitable room found.");
-            }
-
-            // Creating a Booking using Lombok's @Builder
             Booking booking = Booking.builder()
                     .room(room)
                     .startTime(startTime)
@@ -74,16 +76,14 @@ public class BookingService {
                     .numberOfPeople(numberOfPeople)
                     .build();
 
-            // Save the booking
-            if (bookingRepository == null) {
-                throw new IllegalStateException("Booking repository is not initialized.");
-            }
             bookingRepository.save(booking);
+            log.info("Room '{}' booked successfully", room.getName());
 
             return String.format("Room '%s' booked successfully for %d people from %s to %s.",
                                  room.getName(), numberOfPeople, startTime, endTime);
         } else {
-            // Check for alternative rooms with lower capacity
+            log.warn("No room available for {} people from {} to {}", numberOfPeople, startTime, endTime);
+
             List<ConferenceRoom> lowerCapacityRooms = findLowerCapacityRooms(startTime, endTime, numberOfPeople);
 
             if (!lowerCapacityRooms.isEmpty()) {
@@ -95,123 +95,116 @@ public class BookingService {
                                                    message.append(String.format("Room '%s' with a capacity of %d people.\n",
                                                                                 room.getName(), room.getCapacity())));
 
+                log.warn("Rooms with lower capacity found: {}", lowerCapacityRooms);
                 throw new NoRoomAvailableException(message.toString().trim());
             } else {
+                log.error("No suitable room available for the requested time");
                 throw new NoRoomAvailableException("No suitable room available for the requested time.");
             }
         }
     }
 
     private void validateTimeInterval(LocalTime startTime, LocalTime endTime) {
+        log.debug("Validating time interval: {} to {}", startTime, endTime);
         if (startTime == null || endTime == null) {
+            log.error("Start time or end time is null");
             throw new IllegalArgumentException("Start time and end time cannot be null.");
         }
         if (startTime.equals(endTime) || startTime.isAfter(endTime)) {
+            log.error("Invalid time interval: startTime={} endTime={}", startTime, endTime);
             throw new InvalidTimeIntervalException("End time must be after start time.");
         }
         if (startTime.getMinute() % 15 != 0 || endTime.getMinute() % 15 != 0) {
+            log.error("Time not in 15-minute intervals: startTime={} endTime={}", startTime, endTime);
             throw new InvalidTimeIntervalException("Booking times must be in 15-minute intervals.");
         }
     }
 
     private void validateBookingDuration(LocalTime startTime, LocalTime endTime) {
+        log.debug("Validating booking duration from {} to {}", startTime, endTime);
         Duration duration = Duration.between(startTime, endTime);
 
-        // Ensure booking duration is at least 30 minutes
         if (duration.isNegative() || duration.isZero() || duration.toMinutes() < 30) {
+            log.error("Invalid booking duration: {} minutes", duration.toMinutes());
             throw new InvalidTimeIntervalException("Booking duration must be at least 30 minutes.");
         }
 
-        // Ensure booking duration does not exceed 4 hours
         if (duration.toHours() > 4 || (duration.toHours() == 4 && duration.toMinutesPart() > 0)) {
+            log.error("Booking duration exceeds 4 hours: {} minutes", duration.toMinutes());
             throw new InvalidTimeIntervalException("Booking duration cannot exceed 4 hours.");
         }
     }
 
-
     private Optional<ConferenceRoom> findAvailableRoom(LocalTime startTime, LocalTime endTime, int numberOfPeople) {
-        if (conferenceRoomRepository == null) {
-            throw new IllegalStateException("Conference room repository is not initialized.");
-        }
-
+        log.debug("Finding available room for {} people from {} to {}", numberOfPeople, startTime, endTime);
         List<ConferenceRoom> rooms = conferenceRoomRepository.findAll();
-        if (rooms == null || rooms.isEmpty()) {
+
+        if (rooms.isEmpty()) {
+            log.error("No rooms available in the repository");
             throw new NoRoomAvailableException("No rooms available in the repository.");
         }
 
-        // Check if all rooms are already booked
         boolean allRoomsBooked = rooms.stream()
                 .noneMatch(room -> isRoomAvailable(room, startTime, endTime));
 
         if (allRoomsBooked) {
+            log.error("All rooms are booked during the requested time");
             throw new AllRoomsBookedException("All rooms are already booked during the requested time.");
         }
 
-        // Filter rooms based on capacity first
         List<ConferenceRoom> availableRooms = rooms.stream()
                 .filter(room -> room.getCapacity() >= numberOfPeople)
-                .collect(Collectors.toList());
-
-        // Filter out rooms that are already booked during the requested time
-        availableRooms = availableRooms.stream()
                 .filter(room -> isRoomAvailable(room, startTime, endTime))
+                .sorted(Comparator.comparingInt(ConferenceRoom::getCapacity))
                 .collect(Collectors.toList());
 
-        // Return the best room based on capacity
-        return availableRooms.stream()
-                .sorted(Comparator.comparingInt(ConferenceRoom::getCapacity)) // Sort by capacity for optimal booking
-                .findFirst();
+        log.debug("Available rooms found: {}", availableRooms);
+        return availableRooms.stream().findFirst();
     }
 
     private List<ConferenceRoom> findLowerCapacityRooms(LocalTime startTime, LocalTime endTime, int numberOfPeople) {
-        if (conferenceRoomRepository == null) {
-            throw new IllegalStateException("Conference room repository is not initialized.");
-        }
-
+        log.debug("Finding lower capacity rooms for {} people from {} to {}", numberOfPeople, startTime, endTime);
         List<ConferenceRoom> rooms = conferenceRoomRepository.findAll();
-        if (rooms == null || rooms.isEmpty()) {
+
+        if (rooms.isEmpty()) {
+            log.error("No rooms available in the repository");
             throw new NoRoomAvailableException("No rooms available in the repository.");
         }
 
-        // Filter rooms with lower capacity than needed
-        return rooms.stream()
-                .filter(room -> room.getCapacity() < numberOfPeople) // Rooms with lower capacity
-                .filter(room -> isRoomAvailable(room, startTime, endTime)) // Available during the requested time
-                .sorted(Comparator.comparingInt(ConferenceRoom::getCapacity).reversed()) // Sort by capacity descending
+        List<ConferenceRoom> lowerCapacityRooms = rooms.stream()
+                .filter(room -> room.getCapacity() < numberOfPeople)
+                .filter(room -> isRoomAvailable(room, startTime, endTime))
+                .sorted(Comparator.comparingInt(ConferenceRoom::getCapacity).reversed())
                 .collect(Collectors.toList());
+
+        log.debug("Lower capacity rooms found: {}", lowerCapacityRooms);
+        return lowerCapacityRooms;
     }
 
     private boolean isRoomAvailable(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {
-        if (room == null) {
-            throw new IllegalArgumentException("Room cannot be null.");
-        }
+        log.debug("Checking availability for room: {} from {} to {}", room.getName(), startTime, endTime);
 
-        if (bookingRepository == null) {
-            throw new IllegalStateException("Booking repository is not initialized.");
-        }
-
-        // Check for existing bookings
         List<Booking> existingBookings = bookingRepository.findByRoom(room);
         for (Booking booking : existingBookings) {
-            // Allow bookings that start exactly when another booking ends, or end exactly when another booking starts
             if ((startTime.isBefore(booking.getEndTime()) && !startTime.equals(booking.getEndTime())) &&
                     (endTime.isAfter(booking.getStartTime()) && !endTime.equals(booking.getStartTime()))) {
-                return false; // Overlapping booking
+                log.warn("Room {} is not available due to overlapping booking", room.getName());
+                return false;
             }
         }
 
-        // Check maintenance schedule
         for (LocalTime[] maintenanceSlot : room.getMaintenanceSchedule()) {
-            // Allow bookings that start exactly when maintenance ends, or end exactly when maintenance starts
             if ((startTime.isBefore(maintenanceSlot[1]) && !startTime.equals(maintenanceSlot[1])) &&
                     (endTime.isAfter(maintenanceSlot[0]) && !endTime.equals(maintenanceSlot[0]))) {
-                StringBuilder message = new StringBuilder("The requested time overlaps with the following maintenance windows for room: ")
-                        .append(room.getName()).append(": ")
-                        .append(String.format("[%s to %s]", maintenanceSlot[0], maintenanceSlot[1]));
-                throw new MaintenanceTimeException(message.toString().trim());
+                log.warn("Room {} is not available due to maintenance from {} to {}",
+                         room.getName(),
+                         maintenanceSlot[0],
+                         maintenanceSlot[1]);
+                throw new MaintenanceTimeException("The requested time overlaps with maintenance windows.");
             }
         }
 
-        return true; // Room is available
+        log.debug("Room {} is available", room.getName());
+        return true;
     }
 }
