@@ -6,6 +6,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import com.example.interview.dto.BookingRequest;
@@ -27,6 +28,8 @@ public class BookingService {
 
     @Autowired
     private BookingRepository bookingRepository;
+
+    private final AtomicLong idGenerator = new AtomicLong();
 
     public String bookRoom(BookingRequest request) {
         log.info("bookRoom called with request: {}", request);
@@ -130,6 +133,7 @@ public class BookingService {
         log.info("Booking room: {} for {} people from {} to {}", room.getName(), numberOfPeople, startTime, endTime);
 
         Booking booking = Booking.builder()
+                .id(idGenerator.incrementAndGet())
                 .room(room)
                 .startTime(startTime)
                 .endTime(endTime)
@@ -149,6 +153,16 @@ public class BookingService {
                 .filter(room -> isRoomAvailable(room, startTime, endTime))
                 .sorted(Comparator.comparingInt(ConferenceRoom::getCapacity).reversed())
                 .collect(Collectors.toList());
+    }
+
+    public void deleteBooking(Long bookingId) {
+        log.info("Attempting to delete booking with id: {}", bookingId);
+        if (bookingRepository.findById(bookingId).isEmpty()) {
+            throw new BookingNotFoundException("Booking with ID " + bookingId + " not found.");
+        }
+
+        bookingRepository.deleteById(bookingId);
+        log.info("Booking with id {} deleted successfully", bookingId);
     }
 
     private boolean isRoomAvailable(ConferenceRoom room, LocalTime startTime, LocalTime endTime) {

@@ -1,13 +1,17 @@
 package com.example.interview.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.interview.dto.BookingRequest;
 import com.example.interview.exception.AllRoomsBookedException;
+import com.example.interview.exception.BookingNotFoundException;
 import com.example.interview.exception.InvalidNumberOfPeopleException;
 import com.example.interview.exception.InvalidTimeIntervalException;
 import com.example.interview.exception.MaintenanceTimeException;
@@ -16,6 +20,8 @@ import com.example.interview.service.RoomService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -153,4 +159,39 @@ public class BookingControllerTest {
                 .andExpect(content().string("An unexpected error occurred."));
     }
 
+    @Test
+    void testDeleteBooking_BookingNotFound() throws Exception {
+        Long bookingId = 1L;
+
+        doThrow(new BookingNotFoundException("Booking with ID " + bookingId + " not found."))
+                .when(bookingService).deleteBooking(bookingId);
+
+        mockMvc.perform(delete("/api/bookings/delete/{id}", bookingId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Booking with ID " + bookingId + " not found."));
+
+        verify(bookingService).deleteBooking(bookingId);
+    }
+
+    @ParameterizedTest(name = "{index}: Invalid ID - {0} - should throw bad request exception")
+    @ValueSource(strings = {"id", "-1"})
+    void testDeleteBooking_InvalidBookingId_ShouldReturnBadRequest(String bookingId) throws Exception {
+        mockMvc.perform(delete("/api/bookings/delete/{id}", bookingId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid ID. ID must be a positive integer."));
+    }
+
+    @Test
+    void testDeleteBooking_Success() throws Exception {
+        Long bookingId = 1L;
+
+        mockMvc.perform(delete("/api/bookings/delete/{id}", bookingId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Booking deleted successfully."));
+
+        verify(bookingService).deleteBooking(bookingId);
+    }
 }
