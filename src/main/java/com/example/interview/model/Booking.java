@@ -8,6 +8,7 @@ import lombok.Data;
 @Builder
 @Data
 public class Booking {
+    private Long id;
     private ConferenceRoom room;
     private LocalTime startTime;
     private LocalTime endTime;

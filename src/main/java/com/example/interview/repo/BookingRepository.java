@@ -3,6 +3,7 @@ package com.example.interview.repo;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.example.interview.model.Booking;
@@ -30,6 +31,16 @@ public class BookingRepository {
                         !endTime.isBefore(booking.getStartTime()) &&
                         !startTime.isAfter(booking.getEndTime()))
                 .collect(Collectors.toList());
+    }
+
+    public Optional<Booking> findById(Long id) {
+        return bookings.stream()
+                .filter(booking -> booking.getId().equals(id))
+                .findFirst();
+    }
+
+    public void deleteById(Long id) {
+        bookings.removeIf(booking -> booking.getId().equals(id));
     }
 
     public void clear() {

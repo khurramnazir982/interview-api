@@ -2,19 +2,19 @@ package com.example.interview.controller;
 
 import com.example.interview.dto.BookingRequest;
 import com.example.interview.exception.AllRoomsBookedException;
+import com.example.interview.exception.BookingNotFoundException;
 import com.example.interview.exception.InvalidNumberOfPeopleException;
 import com.example.interview.exception.InvalidTimeIntervalException;
 import com.example.interview.exception.MaintenanceTimeException;
 import com.example.interview.exception.NoRoomAvailableException;
 import com.example.interview.service.BookingService;
-import com.example.interview.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,13 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/bookings")
 public class BookingController {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookingController.class);
-
     @Autowired
     private BookingService bookingService;
-
-    @Autowired
-    private RoomService roomService;
 
     @PostMapping("/book")
     public ResponseEntity<String> bookRoom(@Valid @RequestBody BookingRequest bookingRequest, BindingResult result) {
@@ -63,4 +58,33 @@ public class BookingController {
             return ResponseEntity.status(500).body("An unexpected error occurred.");
         }
     }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<String> deleteBooking(@PathVariable String id) {
+        log.info("DELETE /api/bookings/delete/{} called", id);
+        if (id == null || !id.matches("^[0-9]+$")) {
+            log.error("Invalid ID: {}", id);
+            return ResponseEntity.badRequest().body("Invalid ID. ID must be a positive integer.");
+        }
+
+        Long bookingId;
+        try {
+            bookingId = Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            log.error("ID is not a valid number: {}", id);
+            return ResponseEntity.badRequest().body("Invalid ID format. ID must be a positive integer.");
+        }
+
+        try {
+            bookingService.deleteBooking(bookingId);
+            return ResponseEntity.ok("Booking deleted successfully.");
+        } catch (BookingNotFoundException e) {
+            log.error("Booking deletion failed: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error occurred while deleting booking: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body("An unexpected error occurred.");
+        }
+    }
+
 }

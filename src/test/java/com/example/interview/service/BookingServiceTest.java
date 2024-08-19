@@ -9,9 +9,12 @@ import static com.example.interview.utils.TestConstants.TIME_09_15;
 import static com.example.interview.utils.TestConstants.TIME_09_30;
 import static com.example.interview.utils.TestConstants.TIME_10_00;
 import static com.example.interview.utils.TestConstants.TIME_10_30;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -19,6 +22,7 @@ import java.util.stream.Stream;
 
 import com.example.interview.dto.BookingRequest;
 import com.example.interview.exception.AllRoomsBookedException;
+import com.example.interview.exception.BookingNotFoundException;
 import com.example.interview.exception.InvalidNumberOfPeopleException;
 import com.example.interview.exception.InvalidTimeIntervalException;
 import com.example.interview.exception.MaintenanceTimeException;
@@ -225,6 +229,47 @@ class BookingServiceTest {
         );
 
         assertEquals("Number of people should be greater than 1.", exception.getMessage());
+    }
+
+    @Test
+    public void testDeleteBooking_bookingInRepo_SuccessfulDeletion() {
+        String bookingConfirmation = bookingService.bookRoom(AMAZE_1100_1200_REQUEST);
+
+        assertNotNull(bookingConfirmation);
+        assertEquals("Room 'Amaze' booked successfully for 3 people from 11:00 to 12:00.", bookingConfirmation);
+
+        // Verify the booking is saved in the repository
+        List<Booking> bookings = bookingRepository.findByRoomAndTime(
+                conferenceRoomRepository.findByName("Amaze").orElseThrow(),
+                LocalTime.of(11, 0),
+                LocalTime.of(12, 0)
+        );
+        assertEquals(1, bookings.size());
+
+        Booking savedBooking = bookings.get(0);
+        Long bookingId = savedBooking.getId();
+
+        bookingService.deleteBooking(bookingId);
+
+        bookings = bookingRepository.findByRoomAndTime(
+                conferenceRoomRepository.findByName("Amaze").orElseThrow(),
+                LocalTime.of(11, 00),
+                LocalTime.of(12, 0)
+        );
+
+        assertEquals(0, bookings.size());
+    }
+
+    @Test
+    public void testDeleteBooking_BookingNotFound_shouldThrowBookingNotFoundException_bookingUnsuccessful() {
+        Long nonExistentBookingId = 999L;
+
+        BookingNotFoundException exception = assertThrows(
+                BookingNotFoundException.class,
+                () -> bookingService.deleteBooking(nonExistentBookingId)
+        );
+
+        assertEquals("Booking with ID " + nonExistentBookingId + " not found.", exception.getMessage());
     }
 
     private void assertBooking(String roomName, LocalTime startTime, LocalTime endTime, int numberOfPeople, String expectedMessage) {
