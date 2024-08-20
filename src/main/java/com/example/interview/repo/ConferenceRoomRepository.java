@@ -39,7 +39,7 @@ public class ConferenceRoomRepository {
                 .name(properties.getName())
                 .capacity(properties.getCapacity())
                 .maintenanceSchedule(properties.getMaintenanceSchedule().stream()
-                                             .map(schedule -> new LocalTime[]{schedule.getStart(), schedule.getEnd()})
+                                             .map(schedule -> new LocalTime[] {schedule.getStart(), schedule.getEnd()})
                                              .collect(Collectors.toList()))
                 .build();
     }

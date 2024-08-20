@@ -1,13 +1,19 @@
 package com.example.interview.controller;
 
+import static com.example.interview.utils.TestConstants.AMAZE_1100_1200_REQUEST;
+import static com.example.interview.utils.TestConstants.AMAZE_ROOM_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalTime;
+import java.util.Optional;
 
 import com.example.interview.dto.BookingRequest;
 import com.example.interview.exception.AllRoomsBookedException;
@@ -15,8 +21,10 @@ import com.example.interview.exception.BookingNotFoundException;
 import com.example.interview.exception.InvalidNumberOfPeopleException;
 import com.example.interview.exception.InvalidTimeIntervalException;
 import com.example.interview.exception.MaintenanceTimeException;
+import com.example.interview.model.Booking;
+import com.example.interview.model.ConferenceRoom;
+import com.example.interview.repo.ConferenceRoomRepository;
 import com.example.interview.service.BookingService;
-import com.example.interview.service.RoomService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +37,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -37,11 +46,11 @@ public class BookingControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
-    private BookingService bookingService;
+    @Autowired
+    private ConferenceRoomRepository conferenceRoomRepository;
 
     @MockBean
-    private RoomService roomService;
+    private BookingService bookingService;
 
     @BeforeEach
     public void setUp() {
@@ -174,7 +183,7 @@ public class BookingControllerTest {
         verify(bookingService).deleteBooking(bookingId);
     }
 
-    @ParameterizedTest(name = "{index}: Invalid ID - {0} - should throw bad request exception")
+    @ParameterizedTest(name = "{index}: Invalid ID: {0} - should throw bad request exception")
     @ValueSource(strings = {"id", "-1"})
     void testDeleteBooking_InvalidBookingId_ShouldReturnBadRequest(String bookingId) throws Exception {
         mockMvc.perform(delete("/api/bookings/delete/{id}", bookingId)
@@ -186,12 +195,60 @@ public class BookingControllerTest {
     @Test
     void testDeleteBooking_Success() throws Exception {
         Long bookingId = 1L;
-
         mockMvc.perform(delete("/api/bookings/delete/{id}", bookingId)
                                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Booking deleted successfully."));
 
         verify(bookingService).deleteBooking(bookingId);
+    }
+
+    @Test
+    void testViewBooking_Success() throws Exception {
+        ConferenceRoom room = conferenceRoomRepository.findByName(AMAZE_ROOM_NAME).orElseThrow();
+        Booking expectedBooking = Booking.builder()
+                .id(1L)
+                .startTime(LocalTime.of(11, 0, 0))
+                .endTime(LocalTime.of(12, 0, 0))
+                .numberOfPeople(3)
+                .room(room)
+                .build();
+
+        when(bookingService.getBookingById(1L)).thenReturn(expectedBooking);
+
+        Long bookingId = 1L;
+        String expectedJson = "{"
+                + "\"id\":1,"
+                + "\"startTime\":\"11:00:00\","
+                + "\"endTime\":\"12:00:00\","
+                + "\"numberOfPeople\":3,"
+                + "\"room\":{"
+                + "\"name\":\"Amaze\","
+                + "\"capacity\":3,"
+                + "\"maintenanceSchedule\":["
+                + "[\"09:00:00\",\"09:15:00\"],"
+                + "[\"13:00:00\",\"13:15:00\"],"
+                + "[\"17:00:00\",\"17:15:00\"]"
+                + "]"
+                + "}"
+                + "}";
+
+        mockMvc.perform(get("/api/bookings/view/{id}", bookingId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().json(expectedJson))
+                .andReturn();
+
+        verify(bookingService).getBookingById(bookingId);
+    }
+
+    @ParameterizedTest(name = "{index}: Invalid ID: {0} - should throw bad request exception")
+    @ValueSource(strings = {"id", "-1"})
+    void testViewBooking_InvalidBookingId_ShouldReturnBadRequest(String bookingId) throws Exception {
+        mockMvc.perform(get("/api/bookings/view/{id}", bookingId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid ID. ID must be a positive integer."));
     }
 }

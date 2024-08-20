@@ -253,7 +253,7 @@ class BookingServiceTest {
 
         bookings = bookingRepository.findByRoomAndTime(
                 conferenceRoomRepository.findByName("Amaze").orElseThrow(),
-                LocalTime.of(11, 00),
+                LocalTime.of(11, 0),
                 LocalTime.of(12, 0)
         );
 
@@ -267,6 +267,47 @@ class BookingServiceTest {
         BookingNotFoundException exception = assertThrows(
                 BookingNotFoundException.class,
                 () -> bookingService.deleteBooking(nonExistentBookingId)
+        );
+
+        assertEquals("Booking with ID " + nonExistentBookingId + " not found.", exception.getMessage());
+    }
+
+    @Test
+    public void testViewBooking_bookingInRepo_SuccessfulRetrieval() {
+        String bookingConfirmation = bookingService.bookRoom(AMAZE_1100_1200_REQUEST);
+
+        assertNotNull(bookingConfirmation);
+        assertEquals("Room 'Amaze' booked successfully for 3 people from 11:00 to 12:00.", bookingConfirmation);
+
+        // Verify the booking is saved in the repository
+        List<Booking> bookings = bookingRepository.findByRoomAndTime(
+                conferenceRoomRepository.findByName("Amaze").orElseThrow(),
+                LocalTime.of(11, 0),
+                LocalTime.of(12, 0)
+        );
+        assertEquals(1, bookings.size());
+
+        Booking savedBooking = bookings.get(0);
+        Long bookingId = savedBooking.getId();
+
+        bookingService.getBookingById(bookingId);
+
+        bookings = bookingRepository.findByRoomAndTime(
+                conferenceRoomRepository.findByName("Amaze").orElseThrow(),
+                LocalTime.of(11, 0),
+                LocalTime.of(12, 0)
+        );
+
+        assertEquals(1, bookings.size());
+    }
+
+    @Test
+    public void testViewBooking_BookingNotFound_shouldThrowBookingNotFoundException() {
+        Long nonExistentBookingId = 999L;
+
+        BookingNotFoundException exception = assertThrows(
+                BookingNotFoundException.class,
+                () -> bookingService.getBookingById(nonExistentBookingId)
         );
 
         assertEquals("Booking with ID " + nonExistentBookingId + " not found.", exception.getMessage());

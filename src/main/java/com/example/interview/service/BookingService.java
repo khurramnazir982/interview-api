@@ -201,4 +201,12 @@ public class BookingService {
     private boolean timeOverlaps(LocalTime start1, LocalTime end1, LocalTime start2, LocalTime end2) {
         return start1.isBefore(end2) && end1.isAfter(start2);
     }
+
+    public Booking getBookingById(final Long bookingId) {
+        return bookingRepository.findById(bookingId)
+                .orElseThrow(() -> {
+                    String message = "Booking with ID " + bookingId + " not found.";
+                    return new BookingNotFoundException(message);
+                });
+    }
 }

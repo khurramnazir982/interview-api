@@ -7,13 +7,16 @@ import com.example.interview.exception.InvalidNumberOfPeopleException;
 import com.example.interview.exception.InvalidTimeIntervalException;
 import com.example.interview.exception.MaintenanceTimeException;
 import com.example.interview.exception.NoRoomAvailableException;
+import com.example.interview.model.Booking;
 import com.example.interview.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -61,19 +64,13 @@ public class BookingController {
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteBooking(@PathVariable String id) {
-        log.info("DELETE /api/bookings/delete/{} called", id);
-        if (id == null || !id.matches("^[0-9]+$")) {
-            log.error("Invalid ID: {}", id);
-            return ResponseEntity.badRequest().body("Invalid ID. ID must be a positive integer.");
+        // Validate the ID
+        ResponseEntity<String> validationResponse = validateId(id);
+        if (validationResponse != null) {
+            return validationResponse;
         }
 
-        Long bookingId;
-        try {
-            bookingId = Long.parseLong(id);
-        } catch (NumberFormatException e) {
-            log.error("ID is not a valid number: {}", id);
-            return ResponseEntity.badRequest().body("Invalid ID format. ID must be a positive integer.");
-        }
+        long bookingId = Long.parseLong(id);
 
         try {
             bookingService.deleteBooking(bookingId);
@@ -87,4 +84,44 @@ public class BookingController {
         }
     }
 
+    @GetMapping("/view/{id}")
+    public ResponseEntity<?> viewBookingDetails(@PathVariable String id) {
+        ResponseEntity<String> validationResponse = validateId(id);
+        if (validationResponse != null) {
+            return validationResponse;
+        }
+
+        Long bookingId = Long.parseLong(id);
+
+        log.info("GET /api/bookings/view/{} called", bookingId);
+
+        try {
+            Booking booking = bookingService.getBookingById(bookingId);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(booking);
+        } catch (BookingNotFoundException e) {
+            log.error("Booking not found: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error occurred while fetching booking: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body("An unexpected error occurred.");
+        }
+    }
+
+    private ResponseEntity<String> validateId(String id) {
+        if (id == null || !id.matches("^[0-9]+$")) {
+            log.error("Invalid ID: {}", id);
+            return ResponseEntity.badRequest().body("Invalid ID. ID must be a positive integer.");
+        }
+
+        try {
+            Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            log.error("ID is not a valid number: {}", id);
+            return ResponseEntity.badRequest().body("Invalid ID format. ID must be a positive integer.");
+        }
+
+        return null;
+    }
 }

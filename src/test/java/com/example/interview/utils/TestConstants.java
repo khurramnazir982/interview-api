@@ -26,5 +26,4 @@ public class TestConstants {
             .numberOfPeople(20)
             .build();
 
-
 }

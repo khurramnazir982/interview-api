@@ -9,8 +9,8 @@ import lombok.Data;
 @Data
 public class Booking {
     private Long id;
-    private ConferenceRoom room;
     private LocalTime startTime;
     private LocalTime endTime;
     private int numberOfPeople;
+    private ConferenceRoom room;
 }

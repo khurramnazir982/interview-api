@@ -63,7 +63,7 @@ Ensure that the following tools are installed on your system:
 
 ### Testing via Postman
 
-#### 1\. **Booking a Room**
+### 1\. **Booking a Room**
 
 **Endpoint**: `POST /api/bookings`
 
@@ -85,7 +85,7 @@ Ensure that the following tools are installed on your system:
 "message": "Room 'Beauty' booked successfully for 5 people from 14:00 to 15:00."
 }`
 
-#### 2\. **Checking Available Rooms**
+### 2\. **Checking Available Rooms**
 
 **Endpoint**: `GET /api/rooms/availability?startTime=14:00&endTime=15:00`
 
@@ -112,13 +112,63 @@ Ensure that the following tools are installed on your system:
 ]
 }`
 
-#### 3\. **Error Handling**
+### 3\. Deleting a Booking
 
-**Example Error Response**: If a booking request is made for a time overlapping with maintenance, the response might look like this:
+**Endpoint:** DELETE `/api/bookings/delete/{id}`
 
-`{
-"error": "The requested time overlaps with maintenance windows."
-}`
+**Request Parameters:**
+
+-   `id`: The ID of the booking to be deleted (e.g., `1`).
+
+**Description:** This request deletes a booking specified by the booking ID. The ID must be a positive integer. If the ID is invalid (e.g., malformed or negative), or if the booking is not found, an appropriate error message is returned.
+
+**Response Example:**
+
+-   **Success:** `"Booking deleted successfully."`
+-   **Error:** `"Invalid ID. ID must be a positive integer."` or `"Booking with ID {id} not found."`
+
+### 4\. Viewing Booking Details
+
+**Endpoint:** GET `/api/bookings/view/{id}`
+
+**Request Parameters:**
+
+-   `id`: The ID of the booking to be viewed (e.g., `1`).
+
+**Description:** This request retrieves the details of a booking specified by the booking ID. The ID must be a positive integer. If the ID is invalid (e.g., malformed or negative), or if the booking is not found, an appropriate error message is returned.
+
+**Response Example:**
+
+-   **Success:**
+
+
+    {
+       "id": 1,
+       "startTime": "11:30:00",
+       "endTime": "13:00:00",
+       "numberOfPeople": 3,
+       "room": {
+           "name": "Amaze",
+           "capacity": 3,
+           "maintenanceSchedule": [
+               [
+                   "09:00:00",
+                   "09:15:00"
+               ],
+               [
+                   "13:00:00",
+                   "13:15:00"
+               ],
+               [
+                   "17:00:00",
+                   "17:15:00"
+               ]
+           ]
+    }
+
+
+-   **Error:** `"Invalid ID. ID must be a positive integer."` or `"Booking with ID {id} not found."`
+
 
 Database
 --------
@@ -140,7 +190,10 @@ Use the following credentials:
 
 Extensibility
 -------------
-
+-   **View Room Schedule**: This will allow users to look up all bookings for a room by providing the room name.
+-   **Amend Booking Details**: This will allow users to amend a booking, given that the space is available to be booked.
+-   **Start Bookings**: This will allow users to start a booking and will have a 15 mins limit from the start of the timeslot.
+-   **Rooms with Equipment Bookings**: Users will be able to specify if they want any extra equipment and only those rooms with that equipment will be shown.
 -   **Room Management**: The system can be extended to allow dynamic addition or removal of rooms.
 -   **Multi-Day Booking**: Currently, bookings are restricted to the same day, but this can be extended to support multi-day or future bookings.
 -   **User Authentication**: User roles can be added to manage booking rights and access control.
